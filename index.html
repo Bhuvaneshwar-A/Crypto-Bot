@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Chat Assistant</title>
+    <!-- Include Marked.js for Markdown parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .header {
+            background: linear-gradient(90deg, #1a472a 0%, #2e7d32 100%);
+            padding: 1rem;
+            color: white;
+            text-align: center;
+            border-bottom: 4px solid #143c21;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .chat-container {
+            max-width: 1200px;
+            margin: 4rem auto 0;
+            padding: 1rem;
+            height: calc(100vh - 8rem);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            padding: 1.2rem;
+            border-radius: 0.8rem;
+            margin-bottom: 1.2rem;
+            line-height: 1.6;
+            position: relative;
+            animation: fadeIn 0.3s ease-in;
+            max-width: 80%;
+        }
+
+        .user-message {
+            background-color: #e8f5e9;
+            margin-left: auto;
+            border-bottom-right-radius: 0.3rem;
+        }
+
+        .assistant-message {
+            background-color: white;
+            margin-right: auto;
+            border-bottom-left-radius: 0.3rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Markdown Styling */
+        .message-content {
+            color: #24292e;
+        }
+
+        .message-content h1,
+        .message-content h2,
+        .message-content h3 {
+            margin: 1rem 0 0.5rem;
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .message-content h1 { font-size: 1.5rem; }
+        .message-content h2 { font-size: 1.3rem; }
+        .message-content h3 { font-size: 1.1rem; }
+
+        .message-content p {
+            margin-bottom: 0.8rem;
+        }
+
+        .message-content ul,
+        .message-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .message-content li {
+            margin: 0.3rem 0;
+        }
+
+        .message-content strong {
+            color: #24292e;
+            font-weight: 600;
+        }
+
+        .message-content code {
+            background-color: #f6f8fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.3rem;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        .message-content pre {
+            background-color: #f6f8fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 0.8rem 0;
+        }
+
+        .message-content blockquote {
+            border-left: 4px solid #dfe2e5;
+            padding-left: 1rem;
+            color: #6a737d;
+            margin: 0.8rem 0;
+        }
+
+        .timestamp {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+            text-align: right;
+        }
+
+        .input-container {
+            padding: 1rem;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .message-input {
+            flex-grow: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 1rem;
+            font-size: 1rem;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #2e7d32;
+            box-shadow: 0 0 0 0.2rem rgba(46,125,50,0.25);
+        }
+
+        .send-button {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 1rem;
+            padding: 0 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .send-button:hover {
+            background: #1a472a;
+        }
+
+        .loading {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem;
+            align-items: center;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #2e7d32;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { 
+                transform: scale(0);
+            }
+            40% { 
+                transform: scale(1);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(10px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2e7d32;
+            border-radius: 3px;
+            opacity: 0.8;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1a472a;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-title">
+            <span>₿</span>
+            <span>Crypto Chat Assistant</span>
+        </div>
+    </header>
+
+    <div class="chat-container">
+        <div class="messages" id="messages"></div>
+        <div class="input-container">
+            <div class="input-wrapper">
+                <input type="text" class="message-input" id="messageInput" placeholder="Type your message...">
+                <button class="send-button" id="sendButton">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        let isLoading = false;
+
+        // Configure marked options
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        function createMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            // Parse markdown for assistant messages only
+            messageContent.innerHTML = isUser ? content : marked.parse(content);
+            
+            const timestamp = document.createElement('div');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.appendChild(messageContent);
+            messageDiv.appendChild(timestamp);
+            
+            return messageDiv;
+        }
+
+        function createLoadingIndicator() {
+            const loading = document.createElement('div');
+            loading.className = 'loading';
+            loading.innerHTML = `
+                <div class="loading-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            `;
+            return loading;
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || isLoading) return;
+
+            // Add user message
+            messagesContainer.appendChild(createMessage(message, true));
+            messageInput.value = '';
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Show loading indicator
+            isLoading = true;
+            const loadingIndicator = createLoadingIndicator();
+            messagesContainer.appendChild(loadingIndicator);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            try {
+                const response = await fetch('http://156.67.111.168:5000/api/v1/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        thread_id: localStorage.getItem('thread_id') || crypto.randomUUID()
+                    })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                
+                // Remove loading indicator
+                loadingIndicator.remove();
+                
+                // Add assistant message
+                messagesContainer.appendChild(createMessage(data.analysis));
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (error) {
+                console.error('Error:', error);
+                loadingIndicator.remove();
+                const errorMessage = createMessage('Sorry, there was an error processing your request. Please try again.');
+                errorMessage.style.backgroundColor = '#ffebee';
+                messagesContainer.appendChild(errorMessage);
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Initialize thread_id if not exists
+        if (!localStorage.getItem('thread_id')) {
+            localStorage.setItem('thread_id', crypto.randomUUID());
+        }
+    </script>
+</body>
+</html>
